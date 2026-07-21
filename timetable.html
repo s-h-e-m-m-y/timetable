@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Timetable">
+<link rel="apple-touch-icon" href="icon.png">
+<title>Timetable</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parchment:#14151A;
+    --parchment-dim:#262933;
+    --ink:#EDEAE2;
+    --ink-soft:#9C99A8;
+    --rule:#2A2C34;
+    --rule-strong:#3B3E4A;
+    --study:#E0A857;
+    --study-bg:#3A2E19;
+    --personal:#8FC49B;
+    --personal-bg:#1E2E24;
+    --other:#C9A0C4;
+    --other-bg:#2C2330;
+    --uni:#7FA8D9;
+    --uni-bg:#1B2733;
+    --danger:#E28277;
+    --white:#1E212B;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 4px 18px rgba(0,0,0,0.35);
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--parchment);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{
+    max-width:1400px;
+    margin:0 auto;
+    padding:22px 28px 60px;
+  }
+
+  /* ---------- Header ---------- */
+  header.top{
+    position:relative;
+    padding:18px 26px 22px;
+    margin-bottom:22px;
+    border-radius:14px;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0px, transparent 27px,
+        var(--rule) 27px, var(--rule) 28px
+      ),
+      var(--white);
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  header.top::before{
+    content:"";
+    position:absolute;
+    left:64px; top:0; bottom:0;
+    width:1px;
+    background:var(--other);
+    opacity:.35;
+  }
+  .title-row{
+    display:flex;
+    align-items:baseline;
+    gap:14px;
+    padding-left:80px;
+    flex-wrap:wrap;
+  }
+  .title-row h1{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:30px;
+    margin:0;
+    letter-spacing:.2px;
+  }
+  .title-row .sub{
+    font-size:13px;
+    color:var(--ink-soft);
+    font-family:'IBM Plex Mono',monospace;
+  }
+
+  .controls{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:14px;
+    margin-top:16px;
+    padding-left:80px;
+  }
+  .nav-cluster{display:flex; align-items:center; gap:8px;}
+  .view-cluster{display:flex; align-items:center; gap:6px;}
+  .action-cluster{display:flex; align-items:center; gap:8px;}
+
+  button{
+    font-family:'Inter',sans-serif;
+    cursor:pointer;
+    border:1px solid var(--rule-strong);
+    background:var(--white);
+    color:var(--ink);
+    border-radius:8px;
+    padding:8px 13px;
+    font-size:13.5px;
+    font-weight:500;
+    transition:background .15s, transform .05s;
+  }
+  button:hover{background:var(--parchment-dim);}
+  button:active{transform:translateY(1px);}
+  button.primary{
+    background:var(--ink);
+    color:var(--parchment);
+    border-color:var(--ink);
+  }
+  button.primary:hover{background:var(--ink-soft);}
+  button.ghost{border-color:transparent; background:transparent;}
+  button.ghost:hover{background:var(--parchment-dim);}
+  button.danger{color:var(--danger); border-color:var(--danger);}
+  button.danger:hover{background:var(--other-bg);}
+  button.icon{padding:8px 10px;}
+  button.view-btn.active{
+    background:var(--ink);
+    color:var(--parchment);
+    border-color:var(--ink);
+  }
+  .today-label{
+    font-family:'Fraunces',serif;
+    font-size:17px;
+    font-weight:600;
+    min-width:190px;
+    text-align:center;
+  }
+
+  /* ---------- Layout ---------- */
+  .layout{
+    display:grid;
+    grid-template-columns:1fr 280px;
+    gap:22px;
+    align-items:start;
+  }
+  @media (max-width:980px){
+    .layout{grid-template-columns:1fr;}
+  }
+
+  .panel{
+    background:var(--white);
+    border-radius:14px;
+    box-shadow:var(--shadow);
+    padding:18px;
+  }
+
+  /* ---------- Month grid ---------- */
+  .weekday-row{
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    margin-bottom:6px;
+  }
+  .weekday-row div{
+    text-align:center;
+    font-size:11px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    font-family:'IBM Plex Mono',monospace;
+    padding-bottom:6px;
+  }
+  .month-grid{
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    grid-auto-rows:120px;
+    gap:6px;
+  }
+  .month-scroll{
+    overflow-y:auto;
+  }
+  .month-scroll::-webkit-scrollbar{ width:8px; }
+  .month-scroll::-webkit-scrollbar-track{ background:transparent; }
+  .month-scroll::-webkit-scrollbar-thumb{ background:var(--rule-strong); border-radius:4px; }
+  .day-cell{
+    border:1px solid var(--rule);
+    border-radius:10px;
+    padding:6px 7px;
+    position:relative;
+    overflow:hidden;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+    transition:background .15s;
+  }
+  .day-cell:hover{background:var(--parchment-dim);}
+  .day-cell.other-month{opacity:.38;}
+  .day-cell.today{border-color:var(--ink); border-width:1.5px;}
+  .day-num{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    font-weight:500;
+    color:var(--ink-soft);
+    align-self:flex-end;
+  }
+  .day-cell.today .day-num{
+    color:var(--white);
+    background:var(--ink);
+    border-radius:50%;
+    width:20px;height:20px;
+    display:flex;align-items:center;justify-content:center;
+    align-self:flex-end;
+  }
+  .chip{
+    font-size:11px;
+    padding:2px 6px;
+    border-radius:5px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    font-weight:500;
+  }
+  .chip.study{background:var(--study-bg); color:var(--study);}
+  .chip.personal{background:var(--personal-bg); color:var(--personal);}
+  .chip.other{background:var(--other-bg); color:var(--other);}
+  .chip.uni{background:var(--uni-bg); color:var(--uni);}
+  .chip.cancelled{ text-decoration:line-through; opacity:.5; }
+  .more-link{font-size:10.5px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; padding-left:2px;}
+
+  /* ---------- Week/Day grid ---------- */
+  .time-grid-wrap{ display:grid; grid-template-columns:56px 1fr; }
+  .time-col{ display:flex; flex-direction:column; }
+  .time-col .slot{ height:52px; font-size:10.5px; font-family:'IBM Plex Mono',monospace; color:var(--ink-soft); text-align:right; padding-right:8px; transform:translateY(-6px);}
+  .week-days-header{ display:grid; grid-auto-flow:column; grid-auto-columns:1fr; margin-left:56px; margin-bottom:4px;}
+  .week-day-head{ text-align:center; padding-bottom:6px; border-bottom:1px solid var(--rule);}
+  .week-day-head .wd{ font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace;}
+  .week-day-head .dn{ font-family:'Fraunces',serif; font-size:18px; font-weight:600;}
+  .week-day-head.today .dn{ color:var(--study); }
+  .cols-wrap{ display:grid; grid-auto-flow:column; grid-auto-columns:1fr; position:relative;}
+  .day-col{ border-left:1px solid var(--rule); position:relative;}
+  .day-col:last-child{border-right:1px solid var(--rule);}
+  .hour-line{ height:52px; border-top:1px solid var(--rule);}
+  .event-block{
+    position:absolute;
+    left:3px; right:3px;
+    border-radius:7px;
+    padding:4px 7px;
+    font-size:11.5px;
+    line-height:1.3;
+    overflow:hidden;
+    cursor:pointer;
+    box-shadow:0 1px 3px rgba(0,0,0,0.3);
+  }
+  .event-block strong{display:block; font-size:11.5px;}
+  .event-block.study{ background:var(--study-bg); color:var(--study); border-left:3px solid var(--study);}
+  .event-block.personal{ background:var(--personal-bg); color:var(--personal); border-left:3px solid var(--personal);}
+  .event-block.other{ background:var(--other-bg); color:var(--other); border-left:3px solid var(--other);}
+  .event-block.uni{ background:var(--uni-bg); color:var(--uni); border-left:3px solid var(--uni);}
+  .event-block.cancelled{ opacity:.45; text-decoration:line-through;}
+  .event-block{ user-select:none; }
+  .event-block .eb-title{
+    display:block; font-size:11.5px; font-weight:700;
+    border-radius:3px; padding:0 1px; cursor:text;
+  }
+  .event-block .eb-title:hover{ outline:1px dashed currentColor; outline-offset:1px; }
+  .event-block .eb-title[contenteditable="true"]{
+    outline:1px solid currentColor; background:rgba(255,255,255,0.08); cursor:text;
+  }
+  .event-block .eb-time{ font-size:10.5px; opacity:.85; display:block; }
+  .event-block .eb-more{
+    position:absolute; top:1px; right:2px; border:none; background:transparent;
+    color:inherit; opacity:.55; font-size:12px; line-height:1; padding:2px 4px;
+    cursor:pointer; border-radius:4px;
+  }
+  .event-block .eb-more:hover{ opacity:1; background:rgba(255,255,255,0.12); }
+  .event-block .eb-handle{
+    position:absolute; left:0; right:0; height:7px; cursor:ns-resize; z-index:2;
+  }
+  .event-block .eb-handle-top{ top:0; }
+  .event-block .eb-handle-bottom{ bottom:0; }
+  .event-block .eb-handle:hover{ background:rgba(255,255,255,0.18); }
+  .event-block.dragging-block{ opacity:.85; box-shadow:0 6px 18px rgba(0,0,0,0.5); cursor:grabbing; }
+  .event-block:not(.cancelled){ cursor:grab; }
+  .day-col.drop-hover{ background:rgba(255,255,255,0.04); outline:1.5px dashed var(--rule-strong); outline-offset:-2px; }
+  .day-cell.drop-hover{ background:var(--parchment-dim); outline:1.5px dashed var(--rule-strong); outline-offset:-2px; }
+  .quickadd-hint{ font-size:11.5px; color:var(--ink-soft); margin:-4px 0 8px; line-height:1.4; }
+  .quickadd-row{
+    display:flex; align-items:center; gap:8px; font-size:13px; padding:8px 9px;
+    border-radius:8px; border:1px solid var(--rule-strong); background:var(--parchment-dim);
+    cursor:grab; user-select:none; margin-bottom:6px;
+  }
+  .quickadd-row:active{ cursor:grabbing; }
+  .quickadd-row.dragging{ opacity:.4; }
+  .quickadd-row:hover{ border-color:var(--ink-soft); }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar-section{margin-bottom:20px;}
+  .sidebar-section h3{
+    font-family:'Fraunces',serif;
+    font-size:14.5px;
+    margin:0 0 10px;
+    font-weight:600;
+    display:flex; align-items:center; gap:6px;
+  }
+  .legend-row{ display:flex; align-items:center; gap:8px; font-size:13px; padding:5px 0; cursor:pointer; user-select:none;}
+  .swatch{width:11px;height:11px;border-radius:3px; flex-shrink:0;}
+  .swatch.study{background:var(--study);}
+  .swatch.personal{background:var(--personal);}
+  .swatch.other{background:var(--other);}
+  .swatch.uni{background:var(--uni);}
+  .legend-row.off{opacity:.4;}
+  .agenda-item{ padding:8px 0; border-bottom:1px solid var(--rule); font-size:12.5px;}
+  .agenda-item:last-child{border-bottom:none;}
+  .agenda-date{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-soft); text-transform:uppercase;}
+  .agenda-title{font-weight:600; margin-top:2px;}
+  .agenda-time{color:var(--ink-soft); font-size:11.5px;}
+  .empty-note{font-size:12.5px; color:var(--ink-soft); font-style:italic;}
+  .agenda-panel{ min-height:400px; display:flex; flex-direction:column; }
+  .agenda-panel #agendaList{ flex:1; overflow-y:auto; }
+  .agenda-panel #agendaList::-webkit-scrollbar{ width:8px; }
+  .agenda-panel #agendaList::-webkit-scrollbar-track{ background:transparent; }
+  .agenda-panel #agendaList::-webkit-scrollbar-thumb{ background:var(--rule-strong); border-radius:4px; }
+  .notif-status{font-size:12px; color:var(--ink-soft); margin-top:8px; line-height:1.5;}
+  .notif-status.on{color:var(--personal);}
+  .small-btn-row{display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;}
+  .zoom-row{ display:flex; align-items:center; gap:10px; }
+  .zoom-row input[type=range]{ flex:1; accent-color:var(--study); }
+  .zoom-row span{ font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--ink-soft); min-width:56px; text-align:right; }
+
+  /* ---------- Modal ---------- */
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.55);
+    display:flex; align-items:center; justify-content:center;
+    z-index:50; padding:20px;
+  }
+  .modal{
+    background:var(--parchment);
+    border-radius:14px;
+    width:100%; max-width:460px;
+    max-height:90vh; overflow-y:auto;
+    padding:24px 26px 22px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  }
+  .modal h2{
+    font-family:'Fraunces',serif; font-size:20px; margin:0 0 16px; font-weight:600;
+  }
+  .field{margin-bottom:14px;}
+  .field label{
+    display:block; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em;
+    color:var(--ink-soft); margin-bottom:5px; font-family:'IBM Plex Mono',monospace;
+  }
+  .field input[type=text], .field input[type=date], .field input[type=time], .field input[type=number], .field select, .field textarea{
+    width:100%; padding:9px 10px; border:1px solid var(--rule-strong); border-radius:8px;
+    font-family:'Inter',sans-serif; font-size:13.5px; background:var(--white); color:var(--ink);
+  }
+  .field textarea{resize:vertical; min-height:56px;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .cat-picker{display:flex; gap:8px;}
+  .cat-picker label{
+    flex:1; text-align:center; padding:8px 4px; border-radius:8px; border:1.5px solid var(--rule-strong);
+    cursor:pointer; font-size:12.5px; font-weight:600; text-transform:none;
+  }
+  .cat-picker input{display:none;}
+  .cat-picker label.study{color:var(--study);}
+  .cat-picker label.personal{color:var(--personal);}
+  .cat-picker label.other{color:var(--other);}
+  .cat-picker label.uni{color:var(--uni);}
+  .cat-picker input:checked + label.study{background:var(--study-bg); border-color:var(--study);}
+  .cat-picker input:checked + label.personal{background:var(--personal-bg); border-color:var(--personal);}
+  .cat-picker input:checked + label.other{background:var(--other-bg); border-color:var(--other);}
+  .cat-picker input:checked + label.uni{background:var(--uni-bg); border-color:var(--uni);}
+  .modal-actions{ display:flex; justify-content:space-between; margin-top:20px; gap:8px;}
+  .modal-actions .left{display:flex; gap:8px;}
+  .modal-actions .right{display:flex; gap:8px;}
+  .scope-choice{ display:flex; flex-direction:column; gap:10px; margin-top:6px;}
+  .scope-choice button{ text-align:left; padding:12px 14px; }
+  .scope-choice button small{display:block; font-weight:400; color:var(--ink-soft); margin-top:2px;}
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:var(--parchment); padding:10px 18px; border-radius:8px;
+    font-size:13px; z-index:100; box-shadow:var(--shadow); opacity:0; pointer-events:none;
+    transition:opacity .25s, transform .25s;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(-6px);}
+  ::selection{background:var(--study-bg);}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="top">
+    <div class="title-row">
+      <h1>Timetable</h1>
+      <span class="sub">study &amp; life schedule</span>
+    </div>
+    <div class="controls">
+      <div class="nav-cluster">
+        <button class="icon ghost" id="prevBtn" title="Previous">‹</button>
+        <div class="today-label" id="periodLabel">—</div>
+        <button class="icon ghost" id="nextBtn" title="Next">›</button>
+        <button class="ghost" id="todayBtn">Today</button>
+      </div>
+      <div class="view-cluster">
+        <button class="view-btn" data-view="month">Month</button>
+        <button class="view-btn" data-view="week">Week</button>
+        <button class="view-btn" data-view="day">Day</button>
+      </div>
+      <div class="action-cluster">
+        <button class="icon ghost" id="settingsBtn" title="Settings" aria-label="Settings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+        <button class="primary" id="newEventBtn">+ New event</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <div class="panel" id="calendarPanel"></div>
+
+    <div>
+      <div class="panel sidebar-section">
+        <h3>Quick add</h3>
+        <div class="quickadd-hint">Drag onto the calendar to add a 30-min event. Click the title to rename, drag its edges to resize, drag the block to move it.</div>
+        <div class="quickadd-row" draggable="true" data-cat="study" data-label="Study session"><span class="swatch study"></span> Study session</div>
+        <div class="quickadd-row" draggable="true" data-cat="personal" data-label="Personal"><span class="swatch personal"></span> Personal</div>
+        <div class="quickadd-row" draggable="true" data-cat="other" data-label="Commitment"><span class="swatch other"></span> Other commitment</div>
+        <div class="quickadd-row" draggable="true" data-cat="uni" data-label="Uni class"><span class="swatch uni"></span> Uni timetable</div>
+      </div>
+
+      <div class="panel sidebar-section">
+        <h3>Filter</h3>
+        <div class="legend-row" data-cat="study"><span class="swatch study"></span> Study sessions</div>
+        <div class="legend-row" data-cat="personal"><span class="swatch personal"></span> Personal</div>
+        <div class="legend-row" data-cat="other"><span class="swatch other"></span> Other commitments</div>
+        <div class="legend-row" data-cat="uni"><span class="swatch uni"></span> Uni timetable</div>
+      </div>
+
+      <div class="panel sidebar-section agenda-panel">
+        <h3>Next 7 days</h3>
+        <div id="agendaList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   THE DAYBOOK — local, single-file scheduling app
+   Data model lives entirely in localStorage under 'daybook_data_v1'
+   ============================================================ */
+
+const STORAGE_KEY = 'daybook_data_v1';
+const DAY_MS = 86400000;
+
+let state = loadState();
+let view = 'month';          // month | week | day
+let cursor = startOfDay(new Date()); // the date currently focused
+let activeCategories = new Set(['study','personal','other','uni']);
+let notifiedLog = new Set(); // eventId|date already notified this session
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(!parsed.settings) parsed.settings = {};
+      if(!parsed.settings.weeksVisible) parsed.settings.weeksVisible = 6;
+      return parsed;
+    }
+  }catch(e){ console.error('Could not read saved data', e); }
+  return { events: [], settings: { weeksVisible: 6 } };
+}
+function saveState(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+/* ---------------- date helpers ---------------- */
+function startOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function addMonths(d,n){ const x=new Date(d); x.setMonth(x.getMonth()+n); return x; }
+function toISO(d){ const x=new Date(d); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); }
+function parseISO(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function isSameDay(a,b){ return toISO(a)===toISO(b); }
+function startOfWeek(d){ const x=startOfDay(d); const day=(x.getDay()+6)%7; return addDays(x,-day); } // Monday start
+function daysInMonth(y,m){ return new Date(y,m+1,0).getDate(); }
+function fmtTime(t){ if(!t) return ''; const [h,m]=t.split(':').map(Number); const ap=h>=12?'pm':'am'; const hh=((h+11)%12)+1; return hh+(m?':'+String(m).padStart(2,'0'):'')+ap; }
+function fmtMonthYear(d){ return d.toLocaleDateString(undefined,{month:'long', year:'numeric'}); }
+function fmtWeekRange(d){ const s=startOfWeek(d), e=addDays(s,6); const sameMonth=s.getMonth()===e.getMonth(); return sameMonth? s.toLocaleDateString(undefined,{month:'long'})+' '+s.getDate()+'–'+e.getDate()+', '+e.getFullYear() : s.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' – '+e.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }
+function fmtDayLong(d){ return d.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric', year:'numeric'}); }
+function uid(){ return 'ev_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+/* ---------------- recurrence engine ----------------
+   event = {
+     id, title, category, startDate (ISO), startTime, endTime,
+     notes, notifyMinutes,
+     recurrence: { type:'none'|'weekly'|'fortnightly'|'monthly', until: ISO|null },
+     exceptions: { [ISO occurrence date]: { deleted:true } | { override:{title,startTime,endTime,notes,category} } }
+   }
+   Returns list of occurrence objects within [rangeStart, rangeEnd] inclusive,
+   each: { date: ISO, event, cancelled, title, startTime, endTime, notes, category }
+------------------------------------------------------- */
+function generateOccurrences(ev, rangeStart, rangeEnd){
+  const out = [];
+  const startD = parseISO(ev.startDate);
+  const until = ev.recurrence.until ? parseISO(ev.recurrence.until) : null;
+  const type = ev.recurrence.type;
+
+  function pushIfInRange(dateObj){
+    if(dateObj < rangeStart || dateObj > rangeEnd) return;
+    if(dateObj < startD) return;
+    if(until && dateObj > until) return;
+    const iso = toISO(dateObj);
+    const ex = ev.exceptions && ev.exceptions[iso];
+    let occ = { date: iso, event: ev, cancelled:false,
+      title: ev.title, startTime: ev.startTime, endTime: ev.endTime,
+      notes: ev.notes, category: ev.category };
+    if(ex){
+      if(ex.deleted){ occ.cancelled = true; }
+      else if(ex.override){ Object.assign(occ, ex.override); }
+    }
+    out.push(occ);
+  }
+
+  if(type === 'none'){
+    pushIfInRange(startD);
+    return out;
+  }
+  if(type === 'weekly' || type === 'fortnightly'){
+    const step = type === 'weekly' ? 7 : 14;
+    let cur = new Date(startD);
+    if(cur < rangeStart){
+      const diff = Math.floor((rangeStart - cur)/DAY_MS);
+      const steps = Math.floor(diff/step);
+      cur = addDays(cur, steps*step);
+    }
+    let guard = 0;
+    while(cur <= rangeEnd && guard < 400){
+      pushIfInRange(new Date(cur));
+      cur = addDays(cur, step);
+      guard++;
+    }
+    return out;
+  }
+  if(type === 'monthly'){
+    // iterate month by month across the visible range
+    let mCursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+    const endCursor = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), 1);
+    let guard = 0;
+    while(mCursor <= endCursor && guard < 200){
+      const dim = daysInMonth(mCursor.getFullYear(), mCursor.getMonth());
+      const day = Math.min(startD.getDate(), dim);
+      const occDate = new Date(mCursor.getFullYear(), mCursor.getMonth(), day);
+      pushIfInRange(occDate);
+      mCursor = addMonths(mCursor, 1);
+      guard++;
+    }
+    return out;
+  }
+  return out;
+}
+
+function occurrencesInRange(rangeStart, rangeEnd){
+  let all = [];
+  for(const ev of state.events){
+    if(!activeCategories.has(ev.category)) continue;
+    all = all.concat(generateOccurrences(ev, rangeStart, rangeEnd));
+  }
+  all.sort((a,b)=> (a.date+((a.startTime)||'00:00')).localeCompare(b.date+((b.startTime)||'00:00')));
+  return all;
+}
+
+/* ---------------- rendering ---------------- */
+const panel = document.getElementById('calendarPanel');
+const periodLabel = document.getElementById('periodLabel');
+
+function render(){
+  document.querySelectorAll('.view-btn').forEach(b=> b.classList.toggle('active', b.dataset.view===view));
+  if(view==='month') renderMonth();
+  else if(view==='week') renderWeek();
+  else renderDay();
+  renderAgenda();
+  saveState();
+}
+
+function renderMonth(){
+  const y = cursor.getFullYear(), m = cursor.getMonth();
+  periodLabel.textContent = fmtMonthYear(cursor);
+  const firstOfMonth = new Date(y,m,1);
+  const gridStart = startOfWeek(firstOfMonth);
+  const gridEnd = addDays(gridStart, 41); // 6 weeks
+  const occs = occurrencesInRange(gridStart, gridEnd);
+  const byDate = {};
+  occs.forEach(o=>{ (byDate[o.date] = byDate[o.date]||[]).push(o); });
+
+  // Zoom: weeksVisible controls how many week-rows fit in the visible box
+  // without scrolling. The reference box height (750px) is what a full
+  // 6-week month takes up at the original 120px row height — fewer
+  // visible weeks means each row gets bigger (zoomed in), with the rest
+  // of the month reachable by scrolling.
+  const gap = 6;
+  const boxHeight = 6*120 + 5*gap;
+  const weeksVisible = Math.min(6, Math.max(2, state.settings.weeksVisible || 6));
+  const cellH = Math.round((boxHeight - (weeksVisible-1)*gap) / weeksVisible);
+
+  let html = `<div class="weekday-row">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div>${d}</div>`).join('')}</div>`;
+  html += `<div class="month-scroll" style="max-height:${boxHeight}px;">`;
+  html += `<div class="month-grid" style="grid-auto-rows:${cellH}px;">`;
+  for(let i=0;i<42;i++){
+    const d = addDays(gridStart, i);
+    const iso = toISO(d);
+    const inMonth = d.getMonth()===m;
+    const isToday = isSameDay(d, new Date());
+    const dayOccs = (byDate[iso]||[]);
+    const shown = dayOccs.slice(0,3);
+    const rest = dayOccs.length - shown.length;
+    html += `<div class="day-cell ${inMonth?'':'other-month'} ${isToday?'today':''}" data-date="${iso}">
+        <div class="day-num">${d.getDate()}</div>
+        ${shown.map(o=>`<div class="chip ${o.category} ${o.cancelled?'cancelled':''}" data-date="${iso}" data-evid="${o.event.id}">${o.startTime?fmtTime(o.startTime)+' ':''}${escapeHtml(o.title)}</div>`).join('')}
+        ${rest>0?`<div class="more-link">+${rest} more</div>`:''}
+      </div>`;
+  }
+  html += `</div></div>`;
+  panel.innerHTML = html;
+
+  panel.querySelectorAll('.day-cell').forEach(cell=>{
+    cell.addEventListener('click', (e)=>{
+      if(e.target.closest('.chip')) return;
+      cursor = parseISO(cell.dataset.date);
+      view = 'day';
+      render();
+    });
+    cell.addEventListener('dragover', (e)=>{
+      if(!draggingCategory) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      cell.classList.add('drop-hover');
+    });
+    cell.addEventListener('dragleave', ()=> cell.classList.remove('drop-hover'));
+    cell.addEventListener('drop', (e)=>{
+      e.preventDefault();
+      cell.classList.remove('drop-hover');
+      const cat = e.dataTransfer.getData('text/plain') || draggingCategory;
+      if(!cat) return;
+      quickAddEvent(cat, cell.dataset.date, '09:00');
+    });
+  });
+  panel.querySelectorAll('.chip').forEach(chip=>{
+    chip.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      openOccurrence(chip.dataset.evid, chip.dataset.date);
+    });
+  });
+}
+
+function renderWeekOrDay(days){
+  const startHour = 7, endHour = 21; // 7am - 9pm visible window
+  const hours = [];
+  for(let h=startHour; h<=endHour; h++) hours.push(h);
+
+  let head = `<div class="week-days-header">`;
+  days.forEach(d=>{
+    const isToday = isSameDay(d, new Date());
+    head += `<div class="week-day-head ${isToday?'today':''}">
+      <div class="wd">${d.toLocaleDateString(undefined,{weekday:'short'})}</div>
+      <div class="dn">${d.getDate()}</div>
+    </div>`;
+  });
+  head += `</div>`;
+
+  let body = `<div class="time-grid-wrap"><div class="time-col">`;
+  hours.forEach(h=>{
+    const ap = h>=12?'pm':'am'; const hh=((h+11)%12)+1;
+    body += `<div class="slot">${hh}${ap}</div>`;
+  });
+  body += `</div><div class="cols-wrap" style="height:${hours.length*52}px;">`;
+
+  const rangeStart = startOfDay(days[0]);
+  const rangeEnd = startOfDay(days[days.length-1]);
+  const occs = occurrencesInRange(rangeStart, rangeEnd);
+
+  days.forEach(d=>{
+    const iso = toISO(d);
+    body += `<div class="day-col" data-date="${iso}">`;
+    hours.forEach(()=> body += `<div class="hour-line"></div>`);
+    const dayOccs = occs.filter(o=>o.date===iso);
+    dayOccs.forEach(o=>{
+      const [sh,sm] = (o.startTime||'09:00').split(':').map(Number);
+      const [eh,em] = (o.endTime||addOneHour(o.startTime||'09:00')).split(':').map(Number);
+      const topMin = Math.max(0,(sh-startHour)*60+sm);
+      const durMin = Math.max(20,((eh*60+em)-(sh*60+sm)));
+      const top = (topMin/60)*52;
+      const height = (durMin/60)*52;
+      body += `<div class="event-block ${o.category} ${o.cancelled?'cancelled':''}" style="top:${top}px; height:${height}px;" data-evid="${o.event.id}" data-date="${o.date}">
+        <div class="eb-handle eb-handle-top"></div>
+        <button class="eb-more" title="Repeat, notes, delete…">⋯</button>
+        <span class="eb-title" data-evid="${o.event.id}" data-date="${o.date}">${escapeHtml(o.title)}</span>
+        <span class="eb-time">${fmtTime(o.startTime)}${o.endTime?'–'+fmtTime(o.endTime):''}</span>
+        <div class="eb-handle eb-handle-bottom"></div>
+      </div>`;
+    });
+    body += `</div>`;
+  });
+  body += `</div></div>`;
+
+  panel.innerHTML = head + body;
+
+  panel.querySelectorAll('.day-col').forEach(col=>{
+    col.addEventListener('click',(e)=>{
+      if(e.target.closest('.event-block')) return;
+      const rect = col.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const hour = startHour + Math.floor(y/52);
+      const min = Math.round(((y%52)/52)*60/15)*15;
+      openEventModal(null, col.dataset.date, `${String(hour).padStart(2,'0')}:${String(min%60).padStart(2,'0')}`);
+    });
+    col.addEventListener('dragover', (e)=>{
+      if(!draggingCategory) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      col.classList.add('drop-hover');
+    });
+    col.addEventListener('dragleave', ()=> col.classList.remove('drop-hover'));
+    col.addEventListener('drop', (e)=>{
+      e.preventDefault();
+      col.classList.remove('drop-hover');
+      const cat = e.dataTransfer.getData('text/plain') || draggingCategory;
+      if(!cat) return;
+      const rect = col.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const totalMin = Math.max(0, Math.round((y/52)*60/30)*30);
+      const hh = startHour + Math.floor(totalMin/60);
+      const mm = totalMin % 60;
+      quickAddEvent(cat, col.dataset.date, `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`);
+    });
+  });
+  panel.querySelectorAll('.event-block').forEach(block=>{
+    const evId = block.dataset.evid, dateISO = block.dataset.date;
+    wireEventBlock(block, evId, dateISO, startHour);
+  });
+}
+
+/* ---------------- event-block interactions: move, resize, inline title edit ---------------- */
+const STEP_PX = 26; // 30 minutes at 52px/hour
+
+function wireEventBlock(block, evId, dateISO, startHourGrid){
+  const titleEl = block.querySelector('.eb-title');
+  const moreBtn = block.querySelector('.eb-more');
+  const topHandle = block.querySelector('.eb-handle-top');
+  const bottomHandle = block.querySelector('.eb-handle-bottom');
+
+  titleEl.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    if(titleEl.getAttribute('contenteditable')==='true') return;
+    startTitleEdit(titleEl, evId, dateISO);
+  });
+
+  moreBtn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    openOccurrence(evId, dateISO);
+  });
+
+  attachResize(topHandle, block, evId, dateISO, 'top', startHourGrid);
+  attachResize(bottomHandle, block, evId, dateISO, 'bottom', startHourGrid);
+  attachMove(block, evId, dateISO, startHourGrid);
+}
+
+function startTitleEdit(titleEl, evId, dateISO){
+  titleEl.setAttribute('contenteditable', 'true');
+  titleEl.focus();
+  const range = document.createRange();
+  range.selectNodeContents(titleEl);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+
+  function commit(){
+    titleEl.removeEventListener('blur', commit);
+    titleEl.removeEventListener('keydown', keyHandler);
+    const newTitle = titleEl.textContent.replace(/\s+/g,' ').trim() || 'Untitled';
+    titleEl.setAttribute('contenteditable', 'false');
+    updateOccurrenceFields(evId, dateISO, { title: newTitle });
+    render();
+  }
+  function keyHandler(e){
+    if(e.key==='Enter'){ e.preventDefault(); titleEl.blur(); }
+    else if(e.key==='Escape'){ e.preventDefault(); titleEl.blur(); }
+  }
+  titleEl.addEventListener('blur', commit);
+  titleEl.addEventListener('keydown', keyHandler);
+}
+
+function attachResize(handle, block, evId, dateISO, edge, startHourGrid){
+  handle.addEventListener('mousedown', (e)=>{
+    e.preventDefault();
+    e.stopPropagation();
+    const startY = e.clientY;
+    const initialTop = parseFloat(block.style.top);
+    const initialHeight = parseFloat(block.style.height);
+    block.classList.add('dragging-block');
+
+    function onMove(ev){
+      const dy = ev.clientY - startY;
+      if(edge==='bottom'){
+        let newHeight = Math.max(STEP_PX, Math.round((initialHeight+dy)/STEP_PX)*STEP_PX);
+        block.style.height = newHeight+'px';
+      } else {
+        let newTop = Math.round((initialTop+dy)/STEP_PX)*STEP_PX;
+        newTop = Math.max(0, Math.min(newTop, initialTop+initialHeight-STEP_PX));
+        block.style.top = newTop+'px';
+        block.style.height = (initialHeight + (initialTop-newTop))+'px';
+      }
+    }
+    function onUp(){
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      block.classList.remove('dragging-block');
+      const top = parseFloat(block.style.top);
+      const height = parseFloat(block.style.height);
+      const startMin = Math.round((top/52)*60/30)*30;
+      const durMin = Math.max(30, Math.round((height/52)*60/30)*30);
+      const startTimeStr = minutesToTimeStr(startHourGrid*60 + startMin);
+      const endTimeStr = addMinutesToTime(startTimeStr, durMin);
+      updateOccurrenceFields(evId, dateISO, { startTime: startTimeStr, endTime: endTimeStr });
+      render();
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+function attachMove(block, evId, dateISO, startHourGrid){
+  block.addEventListener('mousedown', (e)=>{
+    if(e.target.closest('.eb-handle') || e.target.closest('.eb-title') || e.target.closest('.eb-more')) return;
+    e.preventDefault();
+    const colsWrap = block.closest('.cols-wrap');
+    const allCols = colsWrap ? Array.from(colsWrap.querySelectorAll('.day-col')) : [];
+    const startY = e.clientY;
+    const initialTop = parseFloat(block.style.top);
+    const height = parseFloat(block.style.height);
+    let currentCol = block.parentElement;
+    let moved = false;
+
+    function onMove(ev){
+      const dy = ev.clientY - startY;
+      const dx = Math.abs(ev.clientX - e.clientX);
+      if(Math.abs(dy) > 3 || dx > 3) moved = true;
+      if(!moved) return;
+      block.classList.add('dragging-block');
+      let newTop = Math.max(0, Math.round((initialTop+dy)/STEP_PX)*STEP_PX);
+      block.style.top = newTop+'px';
+      const elUnder = document.elementFromPoint(ev.clientX, ev.clientY);
+      const colUnder = elUnder && elUnder.closest('.day-col');
+      if(colUnder && colUnder !== currentCol && allCols.includes(colUnder)){
+        colUnder.appendChild(block);
+        currentCol = colUnder;
+      }
+    }
+    function onUp(){
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      block.classList.remove('dragging-block');
+      if(!moved){
+        openOccurrence(evId, dateISO);
+        return;
+      }
+      const top = parseFloat(block.style.top);
+      const startMin = Math.round((top/52)*60/30)*30;
+      const startTimeStr = minutesToTimeStr(startHourGrid*60 + startMin);
+      const durMin = Math.round((height/52)*60/30)*30;
+      const endTimeStr = addMinutesToTime(startTimeStr, durMin);
+      const newDate = currentCol.dataset.date;
+      updateOccurrenceMove(evId, dateISO, newDate, startTimeStr, endTimeStr);
+      render();
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+function minutesToTimeStr(totalMin){
+  totalMin = ((totalMin%1440)+1440)%1440;
+  const h = Math.floor(totalMin/60), m = totalMin%60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+function addMinutesToTime(t, mins){
+  const [h,m] = t.split(':').map(Number);
+  return minutesToTimeStr(h*60+m+mins);
+}
+
+/* Applies a change (title/time) to a single occurrence — mutates the
+   event directly for non-repeating events, or records a per-date
+   override for repeating ones (same pattern as openSingleOccurrenceEditor). */
+function updateOccurrenceFields(evId, dateISO, changes){
+  const ev = state.events.find(e=>e.id===evId);
+  if(!ev) return;
+  if(ev.recurrence.type === 'none'){
+    Object.assign(ev, changes);
+  } else {
+    const cur = (ev.exceptions[dateISO] && ev.exceptions[dateISO].override) || {};
+    ev.exceptions[dateISO] = { override: Object.assign({
+      title: cur.title ?? ev.title,
+      category: cur.category ?? ev.category,
+      startTime: cur.startTime ?? ev.startTime,
+      endTime: cur.endTime ?? ev.endTime,
+      notes: cur.notes ?? ev.notes
+    }, changes) };
+  }
+  saveState();
+}
+
+/* Moving a block can also change its date. For non-repeating events the
+   underlying event just moves. For repeating events, changing the date
+   of a single occurrence would break the recurrence pattern, so the
+   date is kept and only the time changes. */
+function updateOccurrenceMove(evId, oldDateISO, newDateISO, startTime, endTime){
+  const ev = state.events.find(e=>e.id===evId);
+  if(!ev) return;
+  if(ev.recurrence.type === 'none'){
+    ev.startDate = newDateISO;
+    updateOccurrenceFields(evId, newDateISO, { startTime, endTime });
+  } else {
+    if(newDateISO !== oldDateISO) showToast("This is a repeating event, so only its time moved — drag within the same day, or use ⋯ to edit the series.");
+    updateOccurrenceFields(evId, oldDateISO, { startTime, endTime });
+  }
+}
+
+/* ---------------- quick add: drag a category from the sidebar to create an event ---------------- */
+const CAT_LABELS = { study:'Study session', personal:'Personal', other:'Commitment', uni:'Uni class' };
+let draggingCategory = null;
+
+document.querySelectorAll('.quickadd-row').forEach(row=>{
+  row.addEventListener('dragstart', (e)=>{
+    draggingCategory = row.dataset.cat;
+    e.dataTransfer.setData('text/plain', row.dataset.cat);
+    e.dataTransfer.effectAllowed = 'copy';
+    row.classList.add('dragging');
+  });
+  row.addEventListener('dragend', ()=>{
+    row.classList.remove('dragging');
+    draggingCategory = null;
+  });
+});
+
+function quickAddEvent(category, dateISO, timeStr){
+  const startTime = timeStr || '09:00';
+  const endTime = addMinutesToTime(startTime, 30);
+  const newEv = {
+    id: uid(), title: CAT_LABELS[category] || 'New event', category,
+    startDate: dateISO, startTime, endTime,
+    notes:'', notifyMinutes:30,
+    recurrence:{type:'none', until:null}, exceptions:{}
+  };
+  if(!activeCategories.has(category)) activeCategories.add(category);
+  state.events.push(newEv);
+  saveState();
+  render();
+  requestAnimationFrame(()=>{
+    const titleEl = panel.querySelector(`.eb-title[data-evid="${newEv.id}"]`) || panel.querySelector(`.chip[data-evid="${newEv.id}"]`);
+    if(titleEl && titleEl.classList.contains('eb-title')){
+      startTitleEdit(titleEl, newEv.id, dateISO);
+    } else if(titleEl){
+      openOccurrence(newEv.id, dateISO);
+    }
+  });
+}
+function addOneHour(t){ const [h,m]=t.split(':').map(Number); const nh=(h+1)%24; return `${String(nh).padStart(2,'0')}:${String(m).padStart(2,'0')}`; }
+
+function renderWeek(){
+  const s = startOfWeek(cursor);
+  const days = Array.from({length:7}, (_,i)=> addDays(s,i));
+  periodLabel.textContent = fmtWeekRange(cursor);
+  renderWeekOrDay(days);
+}
+function renderDay(){
+  periodLabel.textContent = fmtDayLong(cursor);
+  renderWeekOrDay([cursor]);
+}
+
+function renderAgenda(){
+  const list = document.getElementById('agendaList');
+  const today = startOfDay(new Date());
+  const occs = occurrencesInRange(today, addDays(today,6)).filter(o=>!o.cancelled);
+  if(occs.length===0){ list.innerHTML = `<div class="empty-note">Nothing on the books this week. Enjoy the quiet.</div>`; return; }
+  list.innerHTML = occs.map(o=>{
+    const d = parseISO(o.date);
+    const label = isSameDay(d,today) ? 'Today' : d.toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'});
+    return `<div class="agenda-item">
+      <div class="agenda-date">${label}</div>
+      <div class="agenda-title">${escapeHtml(o.title)}</div>
+      <div class="agenda-time">${o.startTime?fmtTime(o.startTime):''}${o.endTime?'–'+fmtTime(o.endTime):''}</div>
+    </div>`;
+  }).join('');
+}
+
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+
+/* ---------------- confirm modal (avoids native confirm(), which some
+   embedded/sandboxed viewers silently block) ---------------- */
+function showConfirm(title, message, onConfirm){
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="modal">
+      <h2>${escapeHtml(title)}</h2>
+      <p style="font-size:13.5px;color:var(--ink-soft);margin-top:-8px;">${escapeHtml(message)}</p>
+      <div class="modal-actions"><div></div><div class="right">
+        <button class="ghost" id="confirmNo">Cancel</button>
+        <button class="danger" id="confirmYes">Delete</button>
+      </div></div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  backdrop.addEventListener('click', (e)=>{ if(e.target===backdrop) backdrop.remove(); });
+  backdrop.querySelector('#confirmNo').addEventListener('click', ()=> backdrop.remove());
+  backdrop.querySelector('#confirmYes').addEventListener('click', ()=>{ backdrop.remove(); onConfirm(); });
+}
+
+/* ---------------- modal: add / edit ---------------- */
+function openEventModal(existingEvent, dateISO, timeStr){
+  const isEdit = !!existingEvent;
+  const ev = existingEvent || {
+    id:null, title:'', category:'study',
+    startDate: dateISO || toISO(cursor), startTime: timeStr || '16:00', endTime:'',
+    notes:'', notifyMinutes:30,
+    recurrence:{type:'none', until:null}, exceptions:{}
+  };
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="modal">
+      <h2>${isEdit? 'Edit event' : 'New event'}</h2>
+      <div class="field">
+        <label>Title</label>
+        <input type="text" id="f_title" value="${escapeHtml(ev.title)}" placeholder="e.g. Linear Algebra — revision">
+      </div>
+      <div class="field">
+        <label>Type</label>
+        <div class="cat-picker">
+          <input type="radio" name="cat" id="cat_t" value="study" ${ev.category==='study'?'checked':''}><label for="cat_t" class="study">Study</label>
+          <input type="radio" name="cat" id="cat_p" value="personal" ${ev.category==='personal'?'checked':''}><label for="cat_p" class="personal">Personal</label>
+          <input type="radio" name="cat" id="cat_o" value="other" ${ev.category==='other'?'checked':''}><label for="cat_o" class="other">Other</label>
+          <input type="radio" name="cat" id="cat_u" value="uni" ${ev.category==='uni'?'checked':''}><label for="cat_u" class="uni">Uni</label>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Date</label><input type="date" id="f_date" value="${ev.startDate}"></div>
+        <div class="field"><label>Repeats</label>
+          <select id="f_repeat">
+            <option value="none" ${ev.recurrence.type==='none'?'selected':''}>Doesn't repeat</option>
+            <option value="weekly" ${ev.recurrence.type==='weekly'?'selected':''}>Weekly</option>
+            <option value="fortnightly" ${ev.recurrence.type==='fortnightly'?'selected':''}>Fortnightly</option>
+            <option value="monthly" ${ev.recurrence.type==='monthly'?'selected':''}>Monthly</option>
+          </select>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Start time</label><input type="time" id="f_start" value="${ev.startTime||''}"></div>
+        <div class="field"><label>End time</label><input type="time" id="f_end" value="${ev.endTime||''}"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Repeats until (optional)</label><input type="date" id="f_until" value="${ev.recurrence.until||''}"></div>
+        <div class="field"><label>Remind me (minutes before)</label><input type="number" id="f_notify" min="0" step="5" value="${ev.notifyMinutes ?? 30}"></div>
+      </div>
+      <div class="field">
+        <label>Notes</label>
+        <textarea id="f_notes" placeholder="Location, topic, materials to bring…">${escapeHtml(ev.notes)}</textarea>
+      </div>
+      <div class="modal-actions">
+        <div class="left">
+          ${isEdit? `<button class="danger" id="btnDelete">Delete</button>` : ''}
+        </div>
+        <div class="right">
+          <button class="ghost" id="btnCancel">Cancel</button>
+          <button class="primary" id="btnSave">Save</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  backdrop.addEventListener('click', (e)=>{ if(e.target===backdrop) backdrop.remove(); });
+  backdrop.querySelector('#btnCancel').addEventListener('click', ()=> backdrop.remove());
+
+  backdrop.querySelector('#btnSave').addEventListener('click', ()=>{
+    const data = {
+      title: backdrop.querySelector('#f_title').value.trim() || 'Untitled event',
+      category: backdrop.querySelector('input[name=cat]:checked').value,
+      startDate: backdrop.querySelector('#f_date').value,
+      startTime: backdrop.querySelector('#f_start').value,
+      endTime: backdrop.querySelector('#f_end').value,
+      notes: backdrop.querySelector('#f_notes').value.trim(),
+      notifyMinutes: parseInt(backdrop.querySelector('#f_notify').value)||0,
+      recurrence: {
+        type: backdrop.querySelector('#f_repeat').value,
+        until: backdrop.querySelector('#f_until').value || null
+      }
+    };
+    if(isEdit){
+      Object.assign(ev, data);
+    } else {
+      state.events.push(Object.assign(ev, data, {id: uid(), exceptions:{}}));
+    }
+    backdrop.remove();
+    render();
+    showToast(isEdit? 'Event updated' : 'Event added');
+  });
+
+  if(isEdit){
+    backdrop.querySelector('#btnDelete').addEventListener('click', ()=>{
+      if(ev.recurrence.type !== 'none'){
+        showConfirm('Delete whole series?', `This removes every occurrence of "${ev.title}", including past ones.`, ()=>{
+          state.events = state.events.filter(e=>e.id!==ev.id);
+          backdrop.remove();
+          render();
+          showToast('Series deleted');
+        });
+      } else {
+        state.events = state.events.filter(e=>e.id!==ev.id);
+        backdrop.remove();
+        render();
+        showToast('Event deleted');
+      }
+    });
+  }
+}
+
+/* When clicking a chip/block that belongs to a recurring event, offer
+   "just this one" vs "the whole series" before editing/deleting. */
+function openOccurrence(evId, dateISO){
+  const ev = state.events.find(e=>e.id===evId);
+  if(!ev) return;
+  if(ev.recurrence.type === 'none'){
+    openEventModal(ev, dateISO);
+    return;
+  }
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="modal">
+      <h2>${escapeHtml(ev.title)}</h2>
+      <p style="font-size:13px;color:var(--ink-soft);margin-top:-8px;">This is a repeating event. What would you like to change?</p>
+      <div class="scope-choice">
+        <button id="scopeOne">Just this occurrence <small>${new Date(dateISO).toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'})} only — edit, reschedule the time, or cancel it</small></button>
+        <button id="scopeAll">The whole series <small>Changes apply to every future occurrence</small></button>
+        <button id="scopeCancelDay">Cancel just this occurrence <small>Skip this one date, keep the rest of the series</small></button>
+        <button class="danger" id="scopeDeleteAll">Delete the whole series <small>Removes every occurrence, including past ones</small></button>
+      </div>
+      <div class="modal-actions"><div></div><div class="right"><button class="ghost" id="scopeClose">Close</button></div></div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  backdrop.addEventListener('click',(e)=>{ if(e.target===backdrop) backdrop.remove(); });
+  backdrop.querySelector('#scopeClose').addEventListener('click', ()=> backdrop.remove());
+  backdrop.querySelector('#scopeAll').addEventListener('click', ()=>{ backdrop.remove(); openEventModal(ev, dateISO); });
+  backdrop.querySelector('#scopeOne').addEventListener('click', ()=>{ backdrop.remove(); openSingleOccurrenceEditor(ev, dateISO); });
+  backdrop.querySelector('#scopeCancelDay').addEventListener('click', ()=>{
+    ev.exceptions[dateISO] = { deleted:true };
+    backdrop.remove();
+    render();
+    showToast('That occurrence was cancelled');
+  });
+  backdrop.querySelector('#scopeDeleteAll').addEventListener('click', ()=>{
+    showConfirm('Delete whole series?', `This removes every occurrence of "${ev.title}", including past ones.`, ()=>{
+      state.events = state.events.filter(e=>e.id!==ev.id);
+      backdrop.remove();
+      render();
+      showToast('Series deleted');
+    });
+  });
+}
+
+function openSingleOccurrenceEditor(ev, dateISO){
+  const ex = (ev.exceptions[dateISO] && ev.exceptions[dateISO].override) || {};
+  const cur = {
+    title: ex.title ?? ev.title,
+    category: ex.category ?? ev.category,
+    startTime: ex.startTime ?? ev.startTime,
+    endTime: ex.endTime ?? ev.endTime,
+    notes: ex.notes ?? ev.notes
+  };
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="modal">
+      <h2>Edit this occurrence</h2>
+      <p style="font-size:13px;color:var(--ink-soft);margin-top:-8px;">${new Date(dateISO).toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'})} — only this date changes.</p>
+      <div class="field"><label>Title</label><input type="text" id="s_title" value="${escapeHtml(cur.title)}"></div>
+      <div class="row2">
+        <div class="field"><label>Start time</label><input type="time" id="s_start" value="${cur.startTime||''}"></div>
+        <div class="field"><label>End time</label><input type="time" id="s_end" value="${cur.endTime||''}"></div>
+      </div>
+      <div class="field"><label>Notes</label><textarea id="s_notes">${escapeHtml(cur.notes)}</textarea></div>
+      <div class="modal-actions">
+        <div class="left"><button class="danger" id="s_cancelOcc">Cancel this occurrence</button></div>
+        <div class="right"><button class="ghost" id="s_close">Cancel</button><button class="primary" id="s_save">Save</button></div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  backdrop.addEventListener('click',(e)=>{ if(e.target===backdrop) backdrop.remove(); });
+  backdrop.querySelector('#s_close').addEventListener('click', ()=> backdrop.remove());
+  backdrop.querySelector('#s_cancelOcc').addEventListener('click', ()=>{
+    ev.exceptions[dateISO] = { deleted:true };
+    backdrop.remove(); render(); showToast('That occurrence was cancelled');
+  });
+  backdrop.querySelector('#s_save').addEventListener('click', ()=>{
+    ev.exceptions[dateISO] = { override: {
+      title: backdrop.querySelector('#s_title').value.trim() || cur.title,
+      startTime: backdrop.querySelector('#s_start').value,
+      endTime: backdrop.querySelector('#s_end').value,
+      notes: backdrop.querySelector('#s_notes').value.trim(),
+      category: cur.category
+    }};
+    backdrop.remove(); render(); showToast('That occurrence was updated');
+  });
+}
+
+/* ---------------- toast ---------------- */
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._tm);
+  showToast._tm = setTimeout(()=> t.classList.remove('show'), 2200);
+}
+
+/* ---------------- notifications (UI lives inside the settings modal) ---------------- */
+function refreshNotifUI(notifBtn, notifStatus, notifSection){
+  if(!('Notification' in window)){
+    notifStatus.textContent = 'This browser does not support desktop notifications.';
+    notifBtn.disabled = true;
+    notifSection.style.display = '';
+    return;
+  }
+  if(Notification.permission === 'granted'){
+    notifStatus.classList.add('on');
+    notifSection.style.display = 'none';
+  } else {
+    notifBtn.textContent = 'Turn on desktop alerts';
+    notifStatus.textContent = 'Off — enable to get a heads-up before each session.';
+    notifStatus.classList.remove('on');
+    notifSection.style.display = '';
+  }
+}
+
+function checkUpcomingAndNotify(){
+  if(!('Notification' in window) || Notification.permission !== 'granted') return;
+  const now = new Date();
+  const today = startOfDay(now);
+  const occs = occurrencesInRange(today, addDays(today,1)).filter(o=>!o.cancelled);
+  occs.forEach(o=>{
+    if(!o.startTime) return;
+    const [h,m] = o.startTime.split(':').map(Number);
+    const occDateTime = parseISO(o.date);
+    occDateTime.setHours(h,m,0,0);
+    const notifyMinutes = (o.event.notifyMinutes ?? 30);
+    const notifyAt = new Date(occDateTime.getTime() - notifyMinutes*60000);
+    const key = o.event.id+'|'+o.date;
+    if(now >= notifyAt && now < occDateTime && !notifiedLog.has(key)){
+      notifiedLog.add(key);
+      try{
+        new Notification(o.title, {
+          body: `${fmtTime(o.startTime)}${o.endTime? '–'+fmtTime(o.endTime):''}${o.notes? ' · '+o.notes:''}`,
+          tag: key
+        });
+      }catch(e){ console.error(e); }
+    }
+  });
+}
+setInterval(checkUpcomingAndNotify, 30000);
+checkUpcomingAndNotify();
+
+/* ---------------- nav & view controls ---------------- */
+document.getElementById('prevBtn').addEventListener('click', ()=>{
+  if(view==='month') cursor = addMonths(cursor,-1);
+  else if(view==='week') cursor = addDays(cursor,-7);
+  else cursor = addDays(cursor,-1);
+  render();
+});
+document.getElementById('nextBtn').addEventListener('click', ()=>{
+  if(view==='month') cursor = addMonths(cursor,1);
+  else if(view==='week') cursor = addDays(cursor,7);
+  else cursor = addDays(cursor,1);
+  render();
+});
+document.getElementById('todayBtn').addEventListener('click', ()=>{ cursor = startOfDay(new Date()); render(); });
+document.querySelectorAll('.view-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{ view = btn.dataset.view; render(); });
+});
+document.getElementById('newEventBtn').addEventListener('click', ()=> openEventModal(null, toISO(cursor)));
+
+document.querySelectorAll('.legend-row').forEach(row=>{
+  row.addEventListener('click', ()=>{
+    const cat = row.dataset.cat;
+    if(activeCategories.has(cat)){ activeCategories.delete(cat); row.classList.add('off'); }
+    else { activeCategories.add(cat); row.classList.remove('off'); }
+    render();
+  });
+});
+
+/* ---------------- settings modal (zoom + notifications) ---------------- */
+function openSettingsModal(){
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="modal">
+      <h2>Settings</h2>
+      <div class="field">
+        <label>Zoom — weeks visible in Month view</label>
+        <div class="zoom-row">
+          <input type="range" id="zoomSlider" min="2" max="6" step="1" value="${state.settings.weeksVisible}">
+          <span id="zoomLabel">${state.settings.weeksVisible} weeks</span>
+        </div>
+      </div>
+      <div class="field" id="notifSection">
+        <label>Notifications</label>
+        <button id="notifBtn" style="width:100%;">Turn on desktop alerts</button>
+        <div class="notif-status" id="notifStatus">Off — enable to get a heads-up before each session.</div>
+      </div>
+      <div class="field">
+        <label>Backup</label>
+        <div class="small-btn-row">
+          <button id="exportBtn">Export</button>
+          <button id="importBtn">Import</button>
+          <input type="file" id="importFile" accept=".json" style="display:none;">
+        </div>
+        <div class="notif-status">Your schedule lives only in this browser. Export a backup now and then, especially before clearing browser data.</div>
+      </div>
+      <div class="modal-actions"><div></div><div class="right"><button class="ghost" id="settingsClose">Close</button></div></div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  backdrop.addEventListener('click', (e)=>{ if(e.target===backdrop) backdrop.remove(); });
+  backdrop.querySelector('#settingsClose').addEventListener('click', ()=> backdrop.remove());
+
+  const zoomSlider = backdrop.querySelector('#zoomSlider');
+  const zoomLabel = backdrop.querySelector('#zoomLabel');
+  zoomSlider.addEventListener('input', ()=>{
+    state.settings.weeksVisible = parseInt(zoomSlider.value);
+    zoomLabel.textContent = `${state.settings.weeksVisible} weeks`;
+    saveState();
+    if(view==='month') render();
+  });
+
+  const notifBtn = backdrop.querySelector('#notifBtn');
+  const notifStatus = backdrop.querySelector('#notifStatus');
+  const notifSection = backdrop.querySelector('#notifSection');
+  refreshNotifUI(notifBtn, notifStatus, notifSection);
+  notifBtn.addEventListener('click', ()=>{
+    if(!('Notification' in window)) return;
+    Notification.requestPermission().then(()=> refreshNotifUI(notifBtn, notifStatus, notifSection));
+  });
+
+  backdrop.querySelector('#exportBtn').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `daybook-backup-${toISO(new Date())}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Backup downloaded');
+  });
+  const importFile = backdrop.querySelector('#importFile');
+  backdrop.querySelector('#importBtn').addEventListener('click', ()=> importFile.click());
+  importFile.addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const data = JSON.parse(reader.result);
+        if(!data.events) throw new Error('bad format');
+        if(!data.settings) data.settings = { weeksVisible: 6 };
+        state = data;
+        saveState();
+        render();
+        showToast('Backup restored');
+      }catch(err){
+        showToast('That file could not be read as a Daybook backup.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+}
+document.getElementById('settingsBtn').addEventListener('click', openSettingsModal);
+
+/* ---------------- seed a little example data on first run ---------------- */
+if(state.events.length === 0){
+  const nextMonday = (()=>{ const d=startOfWeek(new Date()); return addDays(d, ((new Date().getDay()+6)%7)>0 ? 7 : 0); })();
+  state.events.push(
+    { id: uid(), title:'Study block — revision', category:'study',
+      startDate: toISO(nextMonday), startTime:'16:00', endTime:'17:00',
+      notes:'Replace this with your real study sessions — edit or delete freely.',
+      notifyMinutes:30, recurrence:{type:'weekly', until:null}, exceptions:{} },
+    { id: uid(), title:'Gym', category:'personal',
+      startDate: toISO(addDays(nextMonday,2)), startTime:'07:00', endTime:'08:00',
+      notes:'', notifyMinutes:15, recurrence:{type:'weekly', until:null}, exceptions:{} },
+    { id: uid(), title:'Lecture — sample unit', category:'uni',
+      startDate: toISO(nextMonday), startTime:'10:00', endTime:'12:00',
+      notes:'Replace this with your real uni timetable — edit or delete freely.',
+      notifyMinutes:15, recurrence:{type:'weekly', until:null}, exceptions:{} }
+  );
+  saveState();
+}
+
+render();
+</script>
+</body>
+</html>
